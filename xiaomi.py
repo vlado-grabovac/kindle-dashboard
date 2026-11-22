@@ -29,12 +29,15 @@ def _strip(text):
 
 
 class XiaomiCloud:
-    def __init__(self, username, password, token_file=None):
-        self.username = username
+    def __init__(self, username, password, token_file=None,
+                 pass_token=None, user_id=None, device_id=None):
+        self.username = username or user_id
         self.password = password
+        self.pass_token = pass_token
+        self.pt_user_id = user_id
         self.token_file = token_file
         self.s = requests.Session()
-        self.device_id = "".join(random.choice(string.ascii_letters) for _ in range(16))
+        self.device_id = device_id or "".join(random.choice(string.ascii_letters) for _ in range(16))
         self.user_id = None
         self.ssecurity = None
         self.service_token = None
@@ -65,6 +68,35 @@ class XiaomiCloud:
 
     # ---------- login ----------
     def login(self):
+        if self.pass_token and self.pt_user_id:
+            return self.login_pass_token()
+        return self.login_password()
+
+    def login_pass_token(self):
+        """Login preko passToken cookieja iz browsera (bez lozinke i bez 2FA)."""
+        s = requests.Session()
+        s.headers.update({"User-Agent": UA})
+        for dom in ("account.xiaomi.com", ".xiaomi.com"):
+            s.cookies.set("passToken", self.pass_token, domain=dom)
+            s.cookies.set("userId", str(self.pt_user_id), domain=dom)
+            s.cookies.set("deviceId", self.device_id, domain=dom)
+            s.cookies.set("sdkVersion", "accountsdk-18.8.15", domain=dom)
+        r = s.get("https://account.xiaomi.com/pass/serviceLogin?sid=xiaomiio&_json=true", timeout=20)
+        j = _strip(r.text)
+        if not j.get("ssecurity") or not j.get("location"):
+            raise XiaomiError("passToken login nije uspio (istekao ili pogresan?) code=%s desc=%s"
+                              % (j.get("code"), j.get("desc")))
+        self.ssecurity = j["ssecurity"]
+        self.user_id = str(j.get("userId") or self.pt_user_id)
+        r = s.get(j["location"], timeout=20)
+        token = r.cookies.get("serviceToken") or s.cookies.get("serviceToken")
+        if not token:
+            raise XiaomiError("passToken login: nema serviceToken")
+        self.service_token = token
+        print("[xiaomi] login preko passToken ok")
+        self.save_token()
+
+    def login_password(self):
         self.s = requests.Session()
         self.s.headers.update({"User-Agent": UA,
                                "Content-Type": "application/x-www-form-urlencoded"})

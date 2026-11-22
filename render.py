@@ -66,11 +66,14 @@ def get_air():
 
 def get_purifier():
     user, pw = os.environ.get("XIAOMI_USER"), os.environ.get("XIAOMI_PASS")
-    if not user or not pw:
+    pt, uid = os.environ.get("XIAOMI_PASSTOKEN"), os.environ.get("XIAOMI_USERID")
+    if not (pt and uid) and not (user and pw):
         print("[xiaomi] nema XIAOMI_USER/XIAOMI_PASS, preskacem")
         return None
     from xiaomi import XiaomiCloud
-    cloud = XiaomiCloud(user, pw, token_file=os.environ.get("TOKEN_FILE", ".xiaomi_token.json"))
+    cloud = XiaomiCloud(user, pw, token_file=os.environ.get("TOKEN_FILE", ".xiaomi_token.json"),
+                        pass_token=pt, user_id=uid,
+                        device_id=os.environ.get("XIAOMI_DEVICEID") or None)
     # citamo sire podrucje (debug u logu), pa mapiramo
     pairs = [(2, p) for p in range(1, 7)] + [(3, p) for p in range(1, 13)] + [(4, p) for p in range(1, 6)]
     vals, srv = cloud.get_props(DID, pairs, server=os.environ.get("XIAOMI_SERVER") or None)
