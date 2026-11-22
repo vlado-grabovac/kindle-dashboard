@@ -76,7 +76,7 @@ def get_purifier():
                         pass_token=pt, user_id=uid,
                         device_id=os.environ.get("XIAOMI_DEVICEID") or None)
     if st and sec and uid:
-        cloud.use_static_token(uid, sec.strip(), st.strip().strip('"'))
+        cloud.use_static_token(uid.split(":")[0], sec.strip(), st.strip().strip('"'))
         print("[xiaomi] koristim staticki token iz secrets")
     # citamo sire podrucje (debug u logu), pa mapiramo
     pairs = [(2, p) for p in range(1, 7)] + [(3, p) for p in range(1, 13)] + [(4, p) for p in range(1, 6)]

@@ -17,7 +17,7 @@ from Crypto.Cipher import ARC4
 UA = ("Android-7.1.1-1.0.0-ONEPLUS A3010-136-"
       + "".join(random.choice("ABCDEF") for _ in range(13))
       + " APP/xiaomi.smarthome APPV/62830")
-SERVERS = ["de", "i2", "ru", "sg", "us", "cn"]
+SERVERS = ["sg", "de", "i2", "ru", "us", "cn"]
 
 
 class XiaomiError(Exception):
@@ -31,9 +31,12 @@ def _strip(text):
 class XiaomiCloud:
     def __init__(self, username, password, token_file=None,
                  pass_token=None, user_id=None, device_id=None):
-        self.username = username or user_id
+        self.username = username or (str(user_id).split(":")[0] if user_id else None)
         self.password = password
-        self.pass_token = pass_token
+        self.pass_token = (pass_token or "").strip().strip('"') or None
+        self.c_user_id = None
+        if user_id and ":" in str(user_id):
+            user_id, self.c_user_id = str(user_id).split(":", 1)
         self.pt_user_id = user_id
         self.token_file = token_file
         self.s = requests.Session()
@@ -79,10 +82,13 @@ class XiaomiCloud:
         for dom in ("account.xiaomi.com", ".xiaomi.com"):
             s.cookies.set("passToken", self.pass_token, domain=dom)
             s.cookies.set("userId", str(self.pt_user_id), domain=dom)
+            if self.c_user_id:
+                s.cookies.set("cUserId", self.c_user_id, domain=dom)
             s.cookies.set("deviceId", self.device_id, domain=dom)
             s.cookies.set("sdkVersion", "accountsdk-18.8.15", domain=dom)
         r = s.get("https://account.xiaomi.com/pass/serviceLogin?sid=xiaomiio&_json=true", timeout=20)
         j = _strip(r.text)
+        print("[xiaomi] passToken odgovor polja:", sorted(j.keys()), "code=", j.get("code"))
         if not j.get("ssecurity") or not j.get("location"):
             raise XiaomiError("passToken login nije uspio (istekao ili pogresan?) code=%s desc=%s"
                               % (j.get("code"), j.get("desc")))
