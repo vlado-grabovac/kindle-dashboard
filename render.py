@@ -44,23 +44,36 @@ def font(weight, size):
 
 
 # ---------------------------------------------------------------- podaci
+def _get(url, params, tries=4):
+    import time
+    last = None
+    for i in range(tries):
+        try:
+            r = requests.get(url, params=params, timeout=(10, 30))
+            r.raise_for_status()
+            return r
+        except Exception as e:
+            last = e
+            print(f"[http] pokušaj {i + 1} nije uspio: {e.__class__.__name__}")
+            time.sleep(3 * (i + 1))
+    raise last
+
+
 def get_weather():
-    r = requests.get("https://api.open-meteo.com/v1/forecast", params={
+    r = _get("https://api.open-meteo.com/v1/forecast", params={
         "latitude": LAT, "longitude": LON, "timezone": "Europe/Sarajevo",
         "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset",
         "forecast_days": 4,
-    }, timeout=20)
-    r.raise_for_status()
+    })
     return r.json()
 
 
 def get_air():
-    r = requests.get("https://air-quality-api.open-meteo.com/v1/air-quality", params={
+    r = _get("https://air-quality-api.open-meteo.com/v1/air-quality", params={
         "latitude": LAT, "longitude": LON, "timezone": "Europe/Sarajevo",
         "current": "pm2_5,pm10,european_aqi",
-    }, timeout=20)
-    r.raise_for_status()
+    })
     return r.json()
 
 
@@ -89,8 +102,7 @@ def safe(fn, label):
     try:
         return fn()
     except Exception as e:
-        print(f"[{label}] GREŠKA: {e}")
-        traceback.print_exc()
+        print(f"[{label}] GREŠKA: {e.__class__.__name__}: {e}")
         return None
 
 
