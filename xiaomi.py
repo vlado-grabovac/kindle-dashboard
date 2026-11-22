@@ -204,9 +204,17 @@ class XiaomiCloud:
         r.raise_for_status()
         return json.loads(self._dec(sn, r.text))
 
+    def use_static_token(self, user_id, ssecurity, service_token):
+        """Gotov token iz browsera (bez logina)."""
+        self.user_id = str(user_id)
+        self.ssecurity = ssecurity
+        self.service_token = service_token
+        self.static = True
+
     def get_props(self, did, pairs, server=None):
         """pairs: lista (siid, piid). Vraca dict {(siid,piid): value}."""
-        if not self.load_token():
+        static = getattr(self, "static", False)
+        if not static and not self.load_token():
             self.login()
         payload = {"params": [{"did": str(did), "siid": s, "piid": p} for s, p in pairs]}
         servers = [server] if server else SERVERS
@@ -230,6 +238,8 @@ class XiaomiCloud:
                         print(f"[xiaomi] server={srv} ok, {len(out)} vrijednosti")
                         return out, srv
                 last = res
+            if static:
+                raise XiaomiError(f"staticki token ne radi (istekao?): {last}")
             if attempt == 0:
                 print(f"[xiaomi] ponovni login ({last})")
                 self.login()
